@@ -377,6 +377,7 @@ static int net_socket_listen_init(VLANState *vlan,
                                   const char *name,
                                   const char *host_str)
 {
+	// create socket fd ;bind and listen and set to io_handlers
     NetSocketListenState *s;
     int fd, val, ret;
     struct sockaddr_in saddr;
@@ -396,7 +397,7 @@ static int net_socket_listen_init(VLANState *vlan,
     /* allow fast reuse */
     val = 1;
     setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, (const char *)&val, sizeof(val));
-
+    // bind fd to saddr
     ret = bind(fd, (struct sockaddr *)&saddr, sizeof(saddr));
     if (ret < 0) {
         perror("bind");
@@ -411,6 +412,7 @@ static int net_socket_listen_init(VLANState *vlan,
     s->model = qemu_strdup(model);
     s->name = name ? qemu_strdup(name) : NULL;
     s->fd = fd;
+    // fd_read is net_socket_accept.and opaque is s
     qemu_set_fd_handler(fd, net_socket_accept, NULL, s);
     return 0;
 }
@@ -528,9 +530,9 @@ int net_init_socket(QemuOpts *opts,
             error_report("fd=, connect= and mcast= is invalid with listen=");
             return -1;
         }
-
+        // get val from key 'listen'
         listen = qemu_opt_get(opts, "listen");
-
+        // listen contain host ip and port ; insert to io_handlers
         if (net_socket_listen_init(vlan, "socket", name, listen) == -1) {
             return -1;
         }

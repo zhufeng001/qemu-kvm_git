@@ -75,6 +75,7 @@ static void hex_dump(FILE *f, const uint8_t *buf, int size)
 
 static int get_str_sep(char *buf, int buf_size, const char **pp, int sep)
 {
+	// cp prev to buf; and pp point to sep++ ;delim is sep
     const char *p, *p1;
     int len;
     p = *pp;
@@ -136,30 +137,36 @@ fail:
 
 int parse_host_port(struct sockaddr_in *saddr, const char *str)
 {
+	// get ip and port from str to saddr
     char buf[512];
     struct hostent *he;
     const char *p, *r;
     int port;
 
     p = str;
+    // convert p to host ip
     if (get_str_sep(buf, sizeof(buf), &p, ':') < 0)
         return -1;
     saddr->sin_family = AF_INET;
     if (buf[0] == '\0') {
         saddr->sin_addr.s_addr = 0;
     } else {
+    	// check is *.*.*.* ?
         if (qemu_isdigit(buf[0])) {
             if (!inet_aton(buf, &saddr->sin_addr))
                 return -1;
         } else {
+        	// convert from hostname to hostent; get host info
             if ((he = gethostbyname(buf)) == NULL)
                 return - 1;
             saddr->sin_addr = *(struct in_addr *)he->h_addr;
         }
     }
+    // convert p to port
     port = strtol(p, (char **)&r, 0);
     if (r == p)
         return -1;
+    // convert to network byte order
     saddr->sin_port = htons(port);
     return 0;
 }
@@ -786,10 +793,11 @@ int qemu_find_nic_model(NICInfo *nd, const char * const *models,
 
 int net_handle_fd_param(Monitor *mon, const char *param)
 {
+	// get fd from mon or param
     int fd;
 
     if (!qemu_isdigit(param[0]) && mon) {
-
+    	// get fd from mon
         fd = monitor_get_fd(mon, param);
         if (fd == -1) {
             error_report("No file descriptor named %s found", param);
@@ -797,7 +805,7 @@ int net_handle_fd_param(Monitor *mon, const char *param)
         }
     } else {
         char *endptr = NULL;
-
+        // convert param to int fd
         fd = strtol(param, &endptr, 10);
         if (*endptr || (fd == 0 && param == endptr)) {
             return -1;

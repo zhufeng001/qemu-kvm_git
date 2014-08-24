@@ -2693,7 +2693,8 @@ int qemu_set_fd_handler2(int fd,
                          void *opaque)
 {
     IOHandlerRecord *ioh;
-
+    // found ioh by fd.if not exist ,then init poll,read,write
+    // insert ioh to io_handlers
     if (!fd_read && !fd_write) {
         QLIST_FOREACH(ioh, &io_handlers, next) {
             if (ioh->fd == fd) {
@@ -3583,6 +3584,8 @@ void qemu_cpu_kick(void *env)
 
 void qemu_notify_event(void)
 {
+	// do nothing?
+	// // clear current_tb
     CPUState *env = cpu_single_env;
 
     if (kvm_enabled()) {

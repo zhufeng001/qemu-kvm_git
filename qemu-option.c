@@ -544,6 +544,7 @@ struct QemuOpts {
 
 static QemuOpt *qemu_opt_find(QemuOpts *opts, const char *name)
 {
+	// find opt from opts by cmp name
     QemuOpt *opt;
 
     QTAILQ_FOREACH_REVERSE(opt, &opts->head, QemuOptHead, next) {
@@ -556,6 +557,7 @@ static QemuOpt *qemu_opt_find(QemuOpts *opts, const char *name)
 
 const char *qemu_opt_get(QemuOpts *opts, const char *name)
 {
+	// get opt->str by cmp opt->name
     QemuOpt *opt = qemu_opt_find(opts, name);
     return opt ? opt->str : NULL;
 }

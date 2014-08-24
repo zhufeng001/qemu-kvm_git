@@ -2874,6 +2874,7 @@ static void do_loadvm(Monitor *mon, const QDict *qdict)
 
 int monitor_get_fd(Monitor *mon, const char *fdname)
 {
+	// found int fd by fdname from mon->fds
     mon_fd_t *monfd;
 
     QLIST_FOREACH(monfd, &mon->fds, next) {
