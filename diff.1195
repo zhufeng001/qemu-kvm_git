@@ -1,0 +1,600 @@
+Index: module.c
+===================================================================
+--- module.c	(版本 1194)
++++ module.c	(版本 1195)
+@@ -28,6 +28,7 @@
+ 
+ static void init_types(void)
+ {
++	//初始化init_type_list
+     static int inited;
+     int i;
+ 
+@@ -45,6 +46,7 @@
+ 
+ static ModuleTypeList *find_type(module_init_type type)
+ {
++	//获取到初始化出来的指针
+     ModuleTypeList *l;
+ 
+     init_types();
+@@ -69,6 +71,8 @@
+ 
+ void module_call_init(module_init_type type)
+ {
++	//每个类型有一个链表。
++	//初始化链表上的每个节点。每个节点，都调用init函数。
+     ModuleTypeList *l;
+     ModuleEntry *e;
+ 
+Index: posix-aio-compat.c
+===================================================================
+--- posix-aio-compat.c	(版本 1194)
++++ posix-aio-compat.c	(版本 1195)
+@@ -621,6 +621,7 @@
+ 
+ int paio_init(void)
+ {
++	//初始化posix_aio_state,posixaiostate
+     sigset_t mask;
+     PosixAioState *s;
+     int ret;
+@@ -636,6 +637,7 @@
+     sigprocmask(SIG_BLOCK, &mask, NULL);
+ 
+     s->first_aio = NULL;
++    //fd用来接受信号的。
+     s->fd = qemu_signalfd(&mask);
+     if (s->fd == -1) {
+         fprintf(stderr, "failed to create signalfd\n");
+@@ -647,7 +649,7 @@
+ 
+     qemu_aio_set_fd_handler(s->fd, posix_aio_read, NULL, posix_aio_flush,
+         posix_aio_process_queue, s);
+-
++    //where attr from?
+     ret = pthread_attr_init(&attr);
+     if (ret)
+         die2(ret, "pthread_attr_init");
+@@ -656,6 +658,7 @@
+     if (ret)
+         die2(ret, "pthread_attr_setdetachstate");
+ 
++    //qemu_paiocb
+     QTAILQ_INIT(&request_list);
+ 
+     posix_aio_state = s;
+Index: vl.c
+===================================================================
+--- vl.c	(版本 1194)
++++ vl.c	(版本 1195)
+@@ -2695,6 +2695,7 @@
+     IOHandlerRecord *ioh;
+ 
+     if (!fd_read && !fd_write) {
++    	//如果为null，则从io_handlers mark as deleted
+         QLIST_FOREACH(ioh, &io_handlers, next) {
+             if (ioh->fd == fd) {
+                 ioh->deleted = 1;
+@@ -2702,10 +2703,13 @@
+             }
+         }
+     } else {
++    	//mark as found
+         QLIST_FOREACH(ioh, &io_handlers, next) {
+             if (ioh->fd == fd)
+                 goto found;
+         }
++
++        //init ioh struct,insert in io_handlers
+         ioh = qemu_mallocz(sizeof(IOHandlerRecord));
+         QLIST_INSERT_HEAD(&io_handlers, ioh, next);
+     found:
+Index: block.c
+===================================================================
+--- block.c	(版本 1194)
++++ block.c	(版本 1195)
+@@ -190,6 +190,7 @@
+ /* check if the path starts with "<protocol>:" */
+ int path_has_protocol(const char *path)
+ {
++	//判断字符串中是否包含: 字符。
+     const char *p;
+ 
+ #ifdef _WIN32
+@@ -199,6 +200,7 @@
+     }
+     p = path + strcspn(path, ":/\\");
+ #else
++    //strcspn在path中找到 ：/中出现的字符的下标。
+     p = path + strcspn(path, ":/");
+ #endif
+ 
+@@ -298,16 +300,20 @@
+     BlockDriverState *bs;
+ 
+     bs = g_malloc0(sizeof(BlockDriverState));
++    //device_name拷贝到bs中。
+     pstrcpy(bs->device_name, sizeof(bs->device_name), device_name);
+     if (device_name[0] != '\0') {
+         QTAILQ_INSERT_TAIL(&bdrv_states, bs, list);
+     }
++    //设置iostatus选项。
+     bdrv_iostatus_disable(bs);
+     return bs;
+ }
+ 
+ BlockDriver *bdrv_find_format(const char *format_name)
+ {
++	//在结构体中寻找format_name等于参数的结构体。通过名字返回结构体。
++	//fomat_name有很多中。此处是bdrv_file
+     BlockDriver *drv1;
+     QLIST_FOREACH(drv1, &bdrv_drivers, list) {
+         if (!strcmp(drv1->format_name, format_name)) {
+@@ -327,15 +333,18 @@
+     };
+     const char **p;
+ 
++    //CONFIG_BDRV_RW_WHITELIST为空，则为1
+     if (!whitelist_rw[0] && !whitelist_ro[0]) {
+         return 1;               /* no whitelist, anything goes */
+     }
+ 
++    //判断CONFIG_BDRV_RW_WHITELIST中是否有drv的format_name.有则为1
+     for (p = whitelist_rw; *p; p++) {
+         if (!strcmp(drv->format_name, *p)) {
+             return 1;
+         }
+     }
++    //CONFIG_BDRV_RO_WHITELIST有，则为1.没有为0.
+     if (read_only) {
+         for (p = whitelist_ro; *p; p++) {
+             if (!strcmp(drv->format_name, *p)) {
+@@ -343,6 +352,7 @@
+             }
+         }
+     }
++    //没有为0.不再白名单中。
+     return 0;
+ }
+ 
+@@ -411,9 +421,13 @@
+  */
+ static BlockDriver *find_hdev_driver(const char *filename)
+ {
++	//返回prio最高的blockdriver设备结构。
++	//通过filename来发现？设备？
++	//通过filename中带的name，来识别是哪种 结构。
+     int score_max = 0, score;
+     BlockDriver *drv = NULL, *d;
+ 
++    //d表示一个BlockDriver结构。静态的，所以没有初始化。
+     QLIST_FOREACH(d, &bdrv_drivers, list) {
+         if (d->bdrv_probe_device) {
+             score = d->bdrv_probe_device(filename);
+@@ -451,13 +465,16 @@
+     if (!path_has_protocol(filename)) {
+         return bdrv_find_format("file");
+     }
++    //在filename中找到:字符串的位置。
+     p = strchr(filename, ':');
+     assert(p != NULL);
+     len = p - filename;
+     if (len > sizeof(protocol) - 1)
+         len = sizeof(protocol) - 1;
++    //protoco获取协议名？
+     memcpy(protocol, filename, len);
+     protocol[len] = '\0';
++    //利用filename中的协议和protocolname，来找到drv1结构。
+     QLIST_FOREACH(drv1, &bdrv_drivers, list) {
+         if (drv1->protocol_name &&
+             !strcmp(drv1->protocol_name, protocol)) {
+@@ -533,6 +550,7 @@
+         if (length < 0) {
+             return length;
+         }
++        //roundup，get 1 if less 1
+         hint = DIV_ROUND_UP(length, BDRV_SECTOR_SIZE);
+     }
+ 
+@@ -582,7 +600,7 @@
+     if (bs->is_temporary) {
+         open_flags |= BDRV_O_RDWR;
+     }
+-
++    //如果open_flag中有BDRV_O_RDWR，则为false。
+     bs->read_only = !(open_flags & BDRV_O_RDWR);
+ 
+     if (use_bdrv_whitelist && !bdrv_is_whitelisted(drv, bs->read_only)) {
+@@ -591,11 +609,13 @@
+ 
+     assert(bs->copy_on_read == 0); /* bdrv_new() and bdrv_close() make it so */
+     if (!bs->read_only && (flags & BDRV_O_COPY_ON_READ)) {
++    	//copy_on_read ++
+         bdrv_enable_copy_on_read(bs);
+     }
+-
++    //file那么赋值给bs。
+     pstrcpy(bs->filename, sizeof(bs->filename), filename);
+ 
++    //drv属于bs。
+     bs->drv = drv;
+     bs->opaque = g_malloc0(drv->instance_size);
+ 
+@@ -612,6 +632,7 @@
+     if (drv->bdrv_file_open) {
+         ret = drv->bdrv_file_open(bs, filename, open_flags);
+     } else {
++    	//open by file format_name
+         ret = bdrv_file_open(&bs->file, filename, open_flags);
+         if (ret >= 0) {
+             ret = drv->bdrv_open(bs, open_flags);
+@@ -651,15 +672,17 @@
+  */
+ int bdrv_file_open(BlockDriverState **pbs, const char *filename, int flags)
+ {
++	//init bs struct
+     BlockDriverState *bs;
+     BlockDriver *drv;
+     int ret;
+-
++    // found drv by filename
+     drv = bdrv_find_protocol(filename);
+     if (!drv) {
+         return -ENOENT;
+     }
+ 
++    //device_name为‘’
+     bs = bdrv_new("");
+     ret = bdrv_open_common(bs, filename, flags, drv);
+     if (ret < 0) {
+@@ -667,6 +690,7 @@
+         return ret;
+     }
+     bs->growable = 1;
++    //get bs by open
+     *pbs = bs;
+     return 0;
+ }
+@@ -677,6 +701,7 @@
+ int bdrv_open(BlockDriverState *bs, const char *filename, int flags,
+               BlockDriver *drv)
+ {
++	//o is weighter than op
+     int ret;
+     char tmp_filename[PATH_MAX];
+ 
+@@ -704,7 +729,7 @@
+             is_protocol = 1;
+ 
+         bdrv_delete(bs1);
+-
++        // get tmp file fd
+         ret = get_tmp_filename(tmp_filename, sizeof(tmp_filename));
+         if (ret < 0) {
+             return ret;
+@@ -716,7 +741,7 @@
+                      "%s", filename);
+         else if (!realpath(filename, backing_filename))
+             return -errno;
+-
++        //find bdrv by qcow2
+         bdrv_qcow2 = bdrv_find_format("qcow2");
+         options = parse_option_parameters("", bdrv_qcow2->create_options, NULL);
+ 
+@@ -4113,6 +4138,7 @@
+ 
+ void bdrv_init(void)
+ {
++	//初始化block块类型的链表上的节点
+     module_call_init(MODULE_INIT_BLOCK);
+ }
+ 
+Index: cmd.c
+===================================================================
+--- cmd.c	(版本 1194)
++++ cmd.c	(版本 1195)
+@@ -48,6 +48,7 @@
+ add_command(
+ 	const cmdinfo_t	*ci)
+ {
++	//添加某个初始化好的函数到cmdtab。
+ 	cmdtab = realloc((void *)cmdtab, ++ncmds * sizeof(*cmdtab));
+ 	cmdtab[ncmds - 1] = *ci;
+ 	qsort(cmdtab, ncmds, sizeof(*cmdtab), compare);
+@@ -66,6 +67,7 @@
+ add_check_command(
+ 	checkfunc_t	cf)
+ {
++	//初始化check_func
+ 	check_func = cf;
+ }
+ 
+@@ -126,6 +128,7 @@
+ void
+ add_user_command(char *optarg)
+ {
++	//用cmdline来存储每次得到的选项。
+ 	ncmdline++;
+ 	cmdline = realloc(cmdline, sizeof(char*) * (ncmdline));
+ 	if (!cmdline) {
+@@ -148,6 +151,7 @@
+ add_args_command(
+ 	argsfunc_t	af)
+ {
++	//初始化args_func
+ 	args_func = af;
+ }
+ 
+@@ -167,7 +171,7 @@
+ 				cmdline[i], strerror(errno));
+ 			exit(1);
+ 		}
+-		//v表示指针的指针了。
++		//v表示指针的指针了。存储所有的字段。
+ 		v = breakline(input, &c);
+ 		if (c) {
+ 			ct = find_command(v[0]);
+@@ -497,6 +501,7 @@
+ void
+ quit_init(void)
+ {
++	//初始化结构。并添加。
+ 	quit_cmd.name = _("quit");
+ 	quit_cmd.altname = _("q");
+ 	quit_cmd.cfunc = quit_f;
+Index: qemu-io.c
+===================================================================
+--- qemu-io.c	(版本 1194)
++++ qemu-io.c	(版本 1195)
+@@ -1364,6 +1364,7 @@
+             return 1;
+         }
+     } else {
++    	//set device_name to hda
+         bs = bdrv_new("hda");
+ 
+         if (bdrv_open(bs, name, flags, NULL) < 0) {
+@@ -1577,7 +1578,7 @@
+     add_command(&length_cmd);
+     add_command(&info_cmd);
+     add_command(&alloc_cmd);
+-
++    //添加了很多静态的初始化好的命令结构了。cmdinfo_t结构了。
+     add_args_command(init_args_command);
+     add_check_command(init_check_command);
+ 
+Index: aio.c
+===================================================================
+--- aio.c	(版本 1194)
++++ aio.c	(版本 1195)
+@@ -41,6 +41,7 @@
+ 
+ static AioHandler *find_aio_handler(int fd)
+ {
++	//利用fd查找node,在aio_handlers列表上。node没有被删。
+     AioHandler *node;
+ 
+     QLIST_FOREACH(node, &aio_handlers, node) {
+@@ -61,10 +62,12 @@
+ {
+     AioHandler *node;
+ 
++    //find node in aio_handler by fd.
+     node = find_aio_handler(fd);
+ 
+     /* Are we deleting the fd handler? */
+     if (!io_read && !io_write) {
++    	//标记node需要删。如果io_read和io_write都为空
+         if (node) {
+             /* If the lock is held, just mark the node as deleted */
+             if (walking_handlers)
+@@ -86,6 +89,7 @@
+             QLIST_INSERT_HEAD(&aio_handlers, node, node);
+         }
+         /* Update handler with latest information */
++        //初始化node.
+         node->io_read = io_read;
+         node->io_write = io_write;
+         node->io_flush = io_flush;
+Index: compatfd.c
+===================================================================
+--- compatfd.c	(版本 1194)
++++ compatfd.c	(版本 1195)
+@@ -25,6 +25,7 @@
+ 
+ static void *sigwait_compat(void *opaque)
+ {
++	//把sigwaitinfo返回的信息，写回到fd中。
+     struct sigfd_compat_info *info = opaque;
+     int err;
+     sigset_t all;
+@@ -36,6 +37,8 @@
+         siginfo_t siginfo;
+ 
+         err = sigwaitinfo(&info->mask, &siginfo);
++        //该函数与sigsuspend()类似，阻塞一个进程直到特定信号发生，但信号到来时不执行信号处理函数，而是返回信号值。
++        //因此为了避免执行相应的信号处理函数，必须在调用该函数前，使进程屏蔽掉set指向的信号
+         if (err == -1 && errno == EINTR) {
+             err = 0;
+             continue;
+@@ -90,10 +93,10 @@
+ 
+     memcpy(&info->mask, mask, sizeof(*mask));
+     info->fd = fds[1];
+-
++    //包含mask和fd
+     pthread_attr_init(&attr);
+     pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
+-
++    //创建了一个线程。
+     pthread_create(&tid, &attr, sigwait_compat, info);
+ 
+     pthread_attr_destroy(&attr);
+Index: qemu-option.c
+===================================================================
+--- qemu-option.c	(版本 1194)
++++ qemu-option.c	(版本 1195)
+@@ -350,6 +350,7 @@
+  */
+ static size_t count_option_parameters(QEMUOptionParameter *list)
+ {
++	// list is array. get count of list
+     size_t num_options = 0;
+ 
+     while (list && list->name) {
+Index: osdep.c
+===================================================================
+--- osdep.c	(版本 1194)
++++ osdep.c	(版本 1195)
+@@ -282,6 +282,7 @@
+ 
+ #ifdef O_CLOEXEC
+     ret = open(name, flags | O_CLOEXEC, mode);
++    //CLOEXEC,即当调用exec()函数成功后,文件描述符会自动关闭
+ #else
+     ret = open(name, flags, mode);
+     if (ret >= 0) {
+Index: cutils.c
+===================================================================
+--- cutils.c	(版本 1194)
++++ cutils.c	(版本 1195)
+@@ -27,6 +27,7 @@
+ 
+ void pstrcpy(char *buf, int buf_size, const char *str)
+ {
++	//buf的size为buf_size。在buf中添加str。
+     int c;
+     char *q = buf;
+ 
+@@ -54,6 +55,7 @@
+ 
+ int strstart(const char *str, const char *val, const char **ptr)
+ {
++	//str包含val。ptr只向的str中val的末尾。返回1
+     const char *p, *q;
+     p = str;
+     q = val;
+Index: block/commit.c
+===================================================================
+--- block/commit.c	(版本 1194)
++++ block/commit.c	(版本 1195)
+@@ -99,7 +99,7 @@
+     void *buf;
+     int bytes_written = 0;
+     int64_t base_len;
+-
++    //get file length?
+     ret = s->common.len = bdrv_getlength(top);
+ 
+ 
+Index: block/raw-posix.c
+===================================================================
+--- block/raw-posix.c	(版本 1194)
++++ block/raw-posix.c	(版本 1195)
+@@ -160,6 +160,7 @@
+ 
+     do {
+         ret = fstatfs(fd, &stfs);
++        //查询文件系统相关的信息
+     } while (ret != 0 && errno == EINTR);
+ 
+     /*
+@@ -183,8 +184,11 @@
+ {
+     assert(open_flags != NULL);
+ 
++    //O_TEXT      0x4000   打开文本文件翻译CR-LF控制字符
++    //O_BINARY    0x8000   打开二进制字符，不作CR-LF翻译
+     *open_flags |= O_BINARY;
+     *open_flags &= ~O_ACCMODE;
++    //用于取出flag的低2位
+     if (bdrv_flags & BDRV_O_RDWR) {
+         *open_flags |= O_RDWR;
+     } else {
+@@ -195,9 +199,11 @@
+      * and O_DIRECT for no caching. */
+     if ((bdrv_flags & BDRV_O_NOCACHE)) {
+         *open_flags |= O_DIRECT;
++        //就是直接进行文件IO
+     }
+     if (!(bdrv_flags & BDRV_O_CACHE_WB)) {
+         *open_flags |= O_DSYNC;
++        //O_DSYNC告诉内核，当向文件写入数据的时候，只有当数据写到了磁盘时，写入操作才算完成（write才返回成功）
+     }
+ }
+ 
+@@ -243,6 +249,7 @@
+     raw_parse_flags(bdrv_flags, &s->open_flags);
+ 
+     s->fd = -1;
++    // open filename by mode and ways?
+     fd = qemu_open(filename, s->open_flags, 0644);
+     if (fd < 0) {
+         ret = -errno;
+@@ -251,6 +258,7 @@
+         return ret;
+     }
+     s->fd = fd;
++    //check nfs fs.by fd
+     s->force_linearize = is_vectored_io_slow(fd, bdrv_flags);
+ 
+     /* We're falling back to POSIX AIO in some cases so init always */
+@@ -281,10 +289,11 @@
+ {
+     BDRVRawState *s = bs->opaque;
+     int open_flags = 0;
+-
++    //s save filename fd.
+     s->type = FTYPE_FILE;
+     if (flags & BDRV_O_CREAT)
+         open_flags = O_CREAT | O_TRUNC;
++    //将其长度截短为0
+ 
+     return raw_open_common(bs, filename, flags, open_flags);
+ }
+@@ -778,9 +787,12 @@
+     struct stat st;
+ 
+     /* allow a dedicated CD-ROM driver to match with a higher priority */
++    //filename中应该包含/dev/cdrom
+     if (strstart(filename, "/dev/cdrom", NULL))
+         return 50;
+ 
++    //S_ISCHR() 字符特殊文件
++    //S_ISBLK() 块特殊文件
+     if (stat(filename, &st) >= 0 &&
+             (S_ISCHR(st.st_mode) || S_ISBLK(st.st_mode))) {
+         return 100;
+@@ -1140,6 +1152,7 @@
+ 
+ static int cdrom_probe_device(const char *filename)
+ {
++	//获取filename所代表设备的优先级。
+     int fd, ret;
+     int prio = 0;
+ 
+Index: exec.c
+===================================================================
+--- exec.c	(版本 1194)
++++ exec.c	(版本 1195)
+@@ -1594,6 +1594,7 @@
+ 
+ void cpu_exit(CPUState *env)
+ {
++	//mark exit_request in env
+     env->exit_request = 1;
+     cpu_unlink_tb(env);
+ }
+Index: qemu-kvm.c
+===================================================================
+--- qemu-kvm.c	(版本 1194)
++++ qemu-kvm.c	(版本 1195)
+@@ -2114,6 +2114,7 @@
+ 
+ void qemu_kvm_notify_work(void)
+ {
++	//write value '' to io_thread_fd??
+     uint64_t value = 1;
+     char buffer[8];
+     size_t offset = 0;

@@ -1,0 +1,492 @@
+Index: qjson.c
+===================================================================
+--- qjson.c	(版本 1217)
++++ qjson.c	(版本 1218)
+@@ -277,6 +277,7 @@
+ 
+ QString *qobject_to_json(const QObject *obj)
+ {
++	//convert data to qstring
+     QString *str = qstring_new();
+ 
+     to_json(obj, str, 0, 0);
+Index: qemu-coroutine.c
+===================================================================
+--- qemu-coroutine.c	(版本 1217)
++++ qemu-coroutine.c	(版本 1218)
+@@ -45,6 +45,7 @@
+ void qemu_coroutine_enter(Coroutine *co, void *opaque)
+ {
+     Coroutine *self = qemu_coroutine_self();
++    // get current?
+ 
+     trace_qemu_coroutine_enter(self, co, opaque);
+ 
+Index: qdict.c
+===================================================================
+--- qdict.c	(版本 1217)
++++ qdict.c	(版本 1218)
+@@ -58,6 +58,7 @@
+  */
+ static unsigned int tdb_hash(const char *name)
+ {
++	// use name to get hash
+     unsigned value;	/* Used to compute the hash value.  */
+     unsigned   i;	/* Used to cycle through random values. */
+ 
+@@ -73,6 +74,7 @@
+  */
+ static QDictEntry *alloc_entry(const char *key, QObject *value)
+ {
++	// init entry by key and value
+     QDictEntry *entry;
+ 
+     entry = qemu_mallocz(sizeof(*entry));
+@@ -109,6 +111,7 @@
+ static QDictEntry *qdict_find(const QDict *qdict,
+                               const char *key, unsigned int bucket)
+ {
++	//use bucket to get list from table .use key get entry from list
+     QDictEntry *entry;
+ 
+     QLIST_FOREACH(entry, &qdict->table[bucket], next)
+@@ -138,6 +141,7 @@
+     entry = qdict_find(qdict, key, bucket);
+     if (entry) {
+         /* replace key's value */
++    	//if found ,then remove prev value. add new value
+         qobject_decref(entry->value);
+         entry->value = value;
+     } else {
+Index: json-streamer.c
+===================================================================
+--- json-streamer.c	(版本 1217)
++++ json-streamer.c	(版本 1218)
+@@ -23,6 +23,7 @@
+ 
+ static void json_message_process_token(JSONLexer *lexer, QString *token, JSONTokenType type, int x, int y)
+ {
++	//check token and convert token to dict .and put dick to parser->tokens
+     JSONMessageParser *parser = container_of(lexer, JSONMessageParser, lexer);
+     QDict *dict;
+ 
+@@ -44,7 +45,7 @@
+             break;
+         }
+     }
+-
++    // init a dict
+     dict = qdict_new();
+     qdict_put(dict, "type", qint_from_int(type));
+     QINCREF(token);
+@@ -95,6 +96,7 @@
+ void json_message_parser_init(JSONMessageParser *parser,
+                               void (*func)(JSONMessageParser *, QList *))
+ {
++	//parser->lexer is qstring
+     parser->emit = func;
+     parser->brace_count = 0;
+     parser->bracket_count = 0;
+Index: qemu-char.c
+===================================================================
+--- qemu-char.c	(版本 1217)
++++ qemu-char.c	(版本 1218)
+@@ -1037,7 +1037,7 @@
+ static void pty_chr_rearm_timer(CharDriverState *chr, int ms)
+ {
+     PtyCharDriver *s = chr->opaque;
+-
++    //timer_tag 为source_id??
+     if (s->timer_tag) {
+         g_source_remove(s->timer_tag);
+         s->timer_tag = 0;
+Index: json-lexer.c
+===================================================================
+--- json-lexer.c	(版本 1217)
++++ json-lexer.c	(版本 1218)
+@@ -279,7 +279,7 @@
+ static int json_lexer_feed_char(JSONLexer *lexer, char ch, bool flush)
+ {
+     int char_consumed, new_state;
+-
++    //x record row;and y record col
+     lexer->x++;
+     if (ch == '\n') {
+         lexer->x = 0;
+Index: qstring.c
+===================================================================
+--- qstring.c	(版本 1217)
++++ qstring.c	(版本 1218)
+@@ -106,6 +106,7 @@
+  */
+ void qstring_append_chr(QString *qstring, int c)
+ {
++	//resize qstring
+     capacity_increase(qstring, 1);
+     qstring->string[qstring->length++] = c;
+     qstring->string[qstring->length] = 0;
+Index: block.c
+===================================================================
+--- block.c	(版本 1217)
++++ block.c	(版本 1218)
+@@ -233,13 +233,16 @@
+     if (dest_size <= 0)
+         return;
+     if (path_is_absolute(filename)) {
++    	//cp to dest
+         pstrcpy(dest, dest_size, filename);
+     } else {
++    	//filename is not abs path
+         p = strchr(base_path, ':');
+         if (p)
+             p++;
+         else
+             p = base_path;
++        //get basename
+         p1 = strrchr(base_path, '/');
+ #ifdef _WIN32
+         {
+@@ -250,6 +253,7 @@
+         }
+ #endif
+         if (p1)
++        	//skip /
+             p1++;
+         else
+             p1 = base_path;
+@@ -258,6 +262,7 @@
+         len = p - base_path;
+         if (len > dest_size - 1)
+             len = dest_size - 1;
++        // only get the dir name??
+         memcpy(dest, base_path, len);
+         dest[len] = '\0';
+         pstrcat(dest, dest_size, filename);
+@@ -499,11 +504,13 @@
+ 
+     /* Return the raw BlockDriver * to scsi-generic devices or empty drives */
+     if (bs->sg || !bdrv_is_inserted(bs)) {
++    	//determine cdrom is inserted
+         bdrv_delete(bs);
+         drv = bdrv_find_format("raw");
+         if (!drv) {
+             ret = -ENOENT;
+         }
++        //get drv raw
+         *pdrv = drv;
+         return ret;
+     }
+@@ -518,6 +525,8 @@
+     score_max = 0;
+     drv = NULL;
+     QLIST_FOREACH(drv1, &bdrv_drivers, list) {
++    	//found drv by bdrv_probe ,buf and filename?
++    	//buf contain drv marks.ret is bug length
+         if (drv1->bdrv_probe) {
+             score = drv1->bdrv_probe(buf, ret, filename);
+             if (score > score_max) {
+@@ -743,6 +752,7 @@
+             return -errno;
+         //find bdrv by qcow2
+         bdrv_qcow2 = bdrv_find_format("qcow2");
++        //param is ''??!!
+         options = parse_option_parameters("", bdrv_qcow2->create_options, NULL);
+ 
+         set_option_parameter_int(options, BLOCK_OPT_SIZE, total_size * 512);
+@@ -783,22 +793,24 @@
+ 
+     /* If there is a backing file, use it */
+     if ((flags & BDRV_O_NO_BACKING) == 0 && bs->backing_file[0] != '\0') {
++    	//backing file??
+         char backing_filename[PATH_MAX];
+         int back_flags;
+         BlockDriver *back_drv = NULL;
+-
++        // get diff file
+         bs->backing_hd = bdrv_new("");
+         bdrv_get_full_backing_filename(bs, filename, backing_filename,
+                                        sizeof(backing_filename));
+ 
+         if (bs->backing_format[0] != '\0') {
++        	//bs store backing info
+             back_drv = bdrv_find_format(bs->backing_format);
+         }
+ 
+         /* backing files always opened read-only */
+         back_flags =
+             flags & ~(BDRV_O_RDWR | BDRV_O_SNAPSHOT | BDRV_O_NO_BACKING);
+-
++        //open back file
+         ret = bdrv_open(bs->backing_hd, backing_filename, back_flags, back_drv);
+         if (ret < 0) {
+             bdrv_close(bs);
+@@ -1395,7 +1407,7 @@
+ static void bdrv_emit_qmp_eject_event(BlockDriverState *bs, bool ejected)
+ {
+     QObject *data;
+-
++    //把要发送的内容，转化为了json格式的qobject，去发送。
+     data = qobject_from_jsonf("{ 'device': %s, 'tray-open': %i }",
+                               bdrv_get_device_name(bs), ejected);
+     monitor_protocol_event(QEVENT_DEVICE_TRAY_MOVED, data);
+Index: qstring.h
+===================================================================
+--- qstring.h	(版本 1217)
++++ qstring.h	(版本 1218)
+@@ -10,6 +10,7 @@
+     size_t length;
+     size_t capacity;
+ } QString;
++//every Q has a qobject ,contain type and ref
+ 
+ QString *qstring_new(void);
+ QString *qstring_from_str(const char *str);
+Index: qemu-option.c
+===================================================================
+--- qemu-option.c	(版本 1217)
++++ qemu-option.c	(版本 1218)
+@@ -45,6 +45,7 @@
+  */
+ const char *get_opt_name(char *buf, int buf_size, const char *p, char delim)
+ {
++	// get str from p until p .and put str in buf.return str+1
+     char *q;
+ 
+     q = buf;
+@@ -69,6 +70,7 @@
+  */
+ const char *get_opt_value(char *buf, int buf_size, const char *p)
+ {
++	//get val from p put in buf .until ',' which says a  new opt
+     char *q;
+ 
+     q = buf;
+@@ -158,6 +160,7 @@
+ QEMUOptionParameter *get_option_parameter(QEMUOptionParameter *list,
+     const char *name)
+ {
++	//get elm from list by name
+     while (list && list->name) {
+         if (!strcmp(list->name, name)) {
+             return list;
+@@ -170,6 +173,7 @@
+ 
+ static int parse_option_bool(const char *name, const char *value, bool *ret)
+ {
++	//set ret by on or off
+     if (value != NULL) {
+         if (!strcmp(value, "on")) {
+             *ret = 1;
+@@ -206,10 +210,12 @@
+ 
+ static int parse_option_size(const char *name, const char *value, uint64_t *ret)
+ {
++	//convert size to bytes . save in ret
+     char *postfix;
+     double sizef;
+ 
+     if (value != NULL) {
++    	//if 1024K,then sizef is 1024,posifix is K
+         sizef = strtod(value, &postfix);
+         switch (*postfix) {
+         case 'T':
+@@ -258,6 +264,7 @@
+ int set_option_parameter(QEMUOptionParameter *list, const char *name,
+     const char *value)
+ {
++	// convert value to list->value.n(s) by list->type
+     bool flag;
+ 
+     // Find a matching parameter
+@@ -277,6 +284,7 @@
+ 
+     case OPT_STRING:
+         if (value != NULL) {
++        	// a new str
+             list->value.s = qemu_strdup(value);
+         } else {
+             fprintf(stderr, "Option '%s' needs a parameter\n", name);
+@@ -306,6 +314,7 @@
+ int set_option_parameter_int(QEMUOptionParameter *list, const char *name,
+     uint64_t value)
+ {
++	//set val by list value.n by name found in list.
+     // Find a matching parameter
+     list = get_option_parameter(list, name);
+     if (list == NULL) {
+@@ -430,6 +439,7 @@
+         // Create a copy of the option list to fill in values
+         dest = qemu_mallocz((num_options + 1) * sizeof(QEMUOptionParameter));
+         allocated = dest;
++        // cp list to dest?
+         memcpy(dest, list, (num_options + 1) * sizeof(QEMUOptionParameter));
+     }
+ 
+Index: coroutine-ucontext.c
+===================================================================
+--- coroutine-ucontext.c	(版本 1217)
++++ coroutine-ucontext.c	(版本 1218)
+@@ -70,6 +70,7 @@
+ 
+ static CoroutineThreadState *coroutine_get_thread_state(void)
+ {
++	// get or init thead private data
+     CoroutineThreadState *s = pthread_getspecific(thread_state_key);
+ 
+     if (!s) {
+@@ -203,14 +204,18 @@
+ CoroutineAction qemu_coroutine_switch(Coroutine *from_, Coroutine *to_,
+                                       CoroutineAction action)
+ {
++	// setjmp or longjmp?? action?
+     CoroutineUContext *from = DO_UPCAST(CoroutineUContext, base, from_);
+     CoroutineUContext *to = DO_UPCAST(CoroutineUContext, base, to_);
+     CoroutineThreadState *s = coroutine_get_thread_state();
+     int ret;
+ 
++    //通俗的说，先调用setjmp，用变量envbuf记录当前的位置，然后调用longjmp，
++    //返回envbuf所记录的位置，并使setjmp的返回值为val
+     s->current = to_;
+ 
+     ret = setjmp(from->env);
++    //返回：若直接调用则为0，若从longjmp返回则为非0
+     if (ret == 0) {
+         longjmp(to->env, action);
+     }
+Index: qlist.c
+===================================================================
+--- qlist.c	(版本 1217)
++++ qlist.c	(版本 1218)
+@@ -61,6 +61,7 @@
+  */
+ void qlist_append_obj(QList *qlist, QObject *value)
+ {
++	//dict to be containd by entry to insert to qlist
+     QListEntry *entry;
+ 
+     entry = qemu_malloc(sizeof(*entry));
+Index: qint.c
+===================================================================
+--- qint.c	(版本 1217)
++++ qint.c	(版本 1218)
+@@ -27,6 +27,7 @@
+  */
+ QInt *qint_from_int(int64_t value)
+ {
++	//a int is too complex
+     QInt *qi;
+ 
+     qi = qemu_malloc(sizeof(*qi));
+Index: osdep.h
+===================================================================
+--- osdep.h	(版本 1217)
++++ osdep.h	(版本 1218)
+@@ -33,6 +33,7 @@
+ #define offsetof(TYPE, MEMBER) ((size_t) &((TYPE *) 0)->MEMBER)
+ #endif
+ #ifndef container_of
++//get member mem_ptr ,then base_ptr = mem_ptr - mem_offset
+ #define container_of(ptr, type, member) ({                      \
+         const typeof(((type *) 0)->member) *__mptr = (ptr);     \
+         (type *) ((char *) __mptr - offsetof(type, member));})
+Index: async.c
+===================================================================
+--- async.c	(版本 1217)
++++ async.c	(版本 1218)
+@@ -42,6 +42,7 @@
+ 
+ QEMUBH *qemu_bh_new(QEMUBHFunc *cb, void *opaque)
+ {
++	//init bh
+     QEMUBH *bh;
+     bh = qemu_mallocz(sizeof(QEMUBH));
+     bh->cb = cb;
+Index: block/raw-posix.c
+===================================================================
+--- block/raw-posix.c	(版本 1217)
++++ block/raw-posix.c	(版本 1218)
+@@ -633,6 +633,7 @@
+ 
+     /* Read out options */
+     while (options && options->name) {
++    	//get total_size.no break?
+         if (!strcmp(options->name, BLOCK_OPT_SIZE)) {
+             total_size = options->value.n / BDRV_SECTOR_SIZE;
+         }
+@@ -644,6 +645,7 @@
+     if (fd < 0) {
+         result = -errno;
+     } else {
++    	//set file length
+         if (ftruncate(fd, total_size * BDRV_SECTOR_SIZE) != 0) {
+             result = -errno;
+         }
+Index: monitor.c
+===================================================================
+--- monitor.c	(版本 1217)
++++ monitor.c	(版本 1218)
+@@ -276,6 +276,7 @@
+ 
+ void monitor_flush(Monitor *mon)
+ {
++	//monitor also contain a qstring ,get from data
+     int rc;
+     size_t len;
+     const char *buf;
+@@ -424,6 +425,7 @@
+     assert(json != NULL);
+ 
+     qstring_append_chr(json, '\n');
++    //puts string from obj
+     monitor_puts(mon, qstring_get_str(json));
+ 
+     QDECREF(json);
+@@ -466,6 +468,7 @@
+ 
+ static void timestamp_put(QDict *qdict)
+ {
++	//obj is string data,to description date .and stored in dict
+     int err;
+     QObject *obj;
+     qemu_timeval tv;
+@@ -523,6 +526,7 @@
+     Monitor *mon;
+ 
+     trace_monitor_protocol_event_emit(event, data);
++    //from mon_list get the proper mon
+     QLIST_FOREACH(mon, &mon_list, entry) {
+         if (monitor_ctrl_mode(mon) && qmp_cmd_mode(mon)) {
+             monitor_json_emitter(mon, data);
+@@ -544,6 +548,7 @@
+     assert(event < QEVENT_MAX);
+ 
+     qemu_mutex_lock(&monitor_event_state_lock);
++    //from event get event's state?
+     evstate = &(monitor_event_state[event]);
+     trace_monitor_protocol_event_queue(event,
+                                        data,
+@@ -655,10 +660,10 @@
+     const char *event_name;
+ 
+     assert(event < QEVENT_MAX);
+-
++    //from event get event string
+     event_name = monitor_event_names[event];
+     assert(event_name != NULL);
+-
++    // dict qmp store time,event_str and data
+     qmp = qdict_new();
+     timestamp_put(qmp);
+     qdict_put(qmp, "event", qstring_from_str(event_name));
+Index: qobject.h
+===================================================================
+--- qobject.h	(版本 1217)
++++ qobject.h	(版本 1218)
+@@ -63,6 +63,7 @@
+     QObject base
+ 
+ /* Get the 'base' part of an object */
++//get base
+ #define QOBJECT(obj) (&(obj)->base)
+ 
+ /* High-level interface for qobject_incref() */
