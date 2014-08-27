@@ -62,6 +62,8 @@ static ssize_t net_socket_receive(VLANClientState *nc, const uint8_t *buf, size_
 
 static ssize_t net_socket_receive_dgram(VLANClientState *nc, const uint8_t *buf, size_t size)
 {
+	// from nc get s;
+	// send buf to dgram_dst addr
     NetSocketState *s = DO_UPCAST(NetSocketState, nc, nc);
 
     return sendto(s->fd, (const void *)buf, size, 0,
@@ -151,9 +153,15 @@ static void net_socket_send_dgram(void *opaque)
 
 static int net_socket_mcast_create(struct sockaddr_in *mcastaddr)
 {
+	// add addr to multicast
+	// create scoket and bind with multi addr
+	// set fd to non-block
+	// return fd
     struct ip_mreq imr;
     int fd;
     int val, ret;
+    // convert network to host byte order
+    // addr is multicast ?
     if (!IN_MULTICAST(ntohl(mcastaddr->sin_addr.s_addr))) {
 	fprintf(stderr, "qemu: error: specified mcastaddr \"%s\" (0x%08x) does not contain a multicast address\n",
 		inet_ntoa(mcastaddr->sin_addr),
@@ -184,7 +192,7 @@ static int net_socket_mcast_create(struct sockaddr_in *mcastaddr)
     /* Add host to multicast group */
     imr.imr_multiaddr = mcastaddr->sin_addr;
     imr.imr_interface.s_addr = htonl(INADDR_ANY);
-
+    // 使用IP_ADD_MEMBERSHIP选项每次只能加入一个网络接口的IP地址到多播组
     ret = setsockopt(fd, IPPROTO_IP, IP_ADD_MEMBERSHIP,
                      (const char *)&imr, sizeof(struct ip_mreq));
     if (ret < 0) {
@@ -228,6 +236,7 @@ static NetSocketState *net_socket_fd_init_dgram(VLANState *vlan,
                                                 const char *name,
                                                 int fd, int is_connected)
 {
+	// create fd to multicask; use fd to create multicast fd1; set fd1 to nc(vc)
     struct sockaddr_in saddr;
     int newfd;
     socklen_t saddr_len;
@@ -240,6 +249,7 @@ static NetSocketState *net_socket_fd_init_dgram(VLANState *vlan,
      */
 
     if (is_connected) {
+    	// get local addr
 	if (getsockname(fd, (struct sockaddr *) &saddr, &saddr_len) == 0) {
 	    /* must be bound */
 	    if (saddr.sin_addr.s_addr==0) {
@@ -271,11 +281,12 @@ static NetSocketState *net_socket_fd_init_dgram(VLANState *vlan,
 	    "socket: fd=%d (%s mcast=%s:%d)",
 	    fd, is_connected ? "cloned" : "",
 	    inet_ntoa(saddr.sin_addr), ntohs(saddr.sin_port));
-
+    // from nc get s
     s = DO_UPCAST(NetSocketState, nc, nc);
-
+    // set s->fd to fd
+    // fd is connect with nc
     s->fd = fd;
-
+    // fd_read is
     qemu_set_fd_handler(s->fd, net_socket_send_dgram, NULL, s);
 
     /* mcast: save bound address as dst */
@@ -327,6 +338,7 @@ static NetSocketState *net_socket_fd_init(VLANState *vlan,
 {
     int so_type = -1, optlen=sizeof(so_type);
 
+    // get socket ype ,tcp ?udp ?
     if(getsockopt(fd, SOL_SOCKET, SO_TYPE, (char *)&so_type,
         (socklen_t *)&optlen)< 0) {
 	fprintf(stderr, "qemu: error: getsockopt(SO_TYPE) for fd=%d failed\n", fd);
@@ -334,6 +346,8 @@ static NetSocketState *net_socket_fd_init(VLANState *vlan,
     }
     switch(so_type) {
     case SOCK_DGRAM:
+    	// use fd to create multicast fd
+    	// put fd to clients
         return net_socket_fd_init_dgram(vlan, model, name, fd, is_connected);
     case SOCK_STREAM:
         return net_socket_fd_init_stream(vlan, model, name, fd, is_connected);

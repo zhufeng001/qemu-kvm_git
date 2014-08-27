@@ -45,6 +45,7 @@
         -offsetof(type, field)]; \
     container_of(dev, type, field);}))
 #else
+// from dev as member and get node
 #define DO_UPCAST(type, field, dev) container_of(dev, type, field)
 #endif
 

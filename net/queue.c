@@ -61,6 +61,7 @@ NetQueue *qemu_new_net_queue(NetPacketDeliver *deliver,
                              NetPacketDeliverIOV *deliver_iov,
                              void *opaque)
 {
+	// malloc and init queue by arg
     NetQueue *queue;
 
     queue = qemu_mallocz(sizeof(NetQueue));

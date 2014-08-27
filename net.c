@@ -238,6 +238,9 @@ VLANClientState *qemu_new_net_client(NetClientInfo *info,
                                      const char *model,
                                      const char *name)
 {
+	// create vc by args
+	// malloc vlan and inserto to clients and init vc->send_queue
+	// vc dispatch to list
     VLANClientState *vc;
 
     assert(info->size >= sizeof(VLANClientState));
@@ -253,6 +256,7 @@ VLANClientState *qemu_new_net_client(NetClientInfo *info,
     }
 
     if (vlan) {
+    	// if got vlan then inserto to vlan->clients
         assert(!peer);
         vc->vlan = vlan;
         QTAILQ_INSERT_TAIL(&vc->vlan->clients, vc, next);
@@ -262,6 +266,7 @@ VLANClientState *qemu_new_net_client(NetClientInfo *info,
             vc->peer = peer;
             peer->peer = vc;
         }
+        // then inserto vc to non_valn_clients
         QTAILQ_INSERT_TAIL(&non_vlan_clients, vc, next);
 
         vc->send_queue = qemu_new_net_queue(qemu_deliver_packet,
@@ -436,6 +441,7 @@ static ssize_t qemu_deliver_packet(VLANClientState *sender,
                                    size_t size,
                                    void *opaque)
 {
+	// receive data to data and size.
     VLANClientState *vc = opaque;
     ssize_t ret;
 
@@ -605,6 +611,7 @@ static ssize_t vc_sendv_compat(VLANClientState *vc, const struct iovec *iov,
 
 static ssize_t calc_iov_length(const struct iovec *iov, int iovcnt)
 {
+	// get iov length in list
     size_t offset = 0;
     int i;
 
@@ -619,6 +626,8 @@ static ssize_t qemu_deliver_packet_iov(VLANClientState *sender,
                                        int iovcnt,
                                        void *opaque)
 {
+	// info-receive_iov ?
+	// info->receive ?
     VLANClientState *vc = opaque;
 
     if (vc->link_down) {
